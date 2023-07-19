@@ -19,28 +19,23 @@ import (
 	"testing"
 )
 
-func Test_topoSort(t *testing.T) {
+func Test_topologicalSort(t *testing.T) {
 	type args struct {
 		edges [][2]string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    []string
-		wantErr bool
+		name string
+		args args
+		want []string
 	}{
-		{"empty graph", args{edges: nil}, nil, false},
-		{"single graph of two nodes", args{edges: [][2]string{{"A", "B"}}}, []string{"B", "A"}, false},
-		{"simple graph of three nodes", args{edges: [][2]string{{"A", "B"}, {"B", "C"}}}, []string{"C", "B", "A"}, false},
-		{"a way more complex graph of five nodes", args{edges: [][2]string{{"A", "B"}, {"B", "C"}, {"A", "C"}, {"D", "E"}, {"A", "E"}}}, []string{"C", "B", "E", "A", "D"}, false},
+		{"empty graph", args{edges: nil}, nil},
+		{"single graph of two nodes", args{edges: [][2]string{{"A", "B"}}}, []string{"B", "A"}},
+		{"simple graph of three nodes", args{edges: [][2]string{{"A", "B"}, {"B", "C"}}}, []string{"C", "B", "A"}},
+		{"a way more complex graph of five nodes", args{edges: [][2]string{{"A", "B"}, {"B", "C"}, {"A", "C"}, {"D", "E"}, {"A", "E"}}}, []string{"C", "B", "E", "A", "D"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := topoSort(tt.args.edges)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("topoSort() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := topologicalSort(tt.args.edges)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("topoSort() = %v, want %v", got, tt.want)
 			}

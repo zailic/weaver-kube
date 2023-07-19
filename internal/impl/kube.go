@@ -818,12 +818,8 @@ func getComponents(dep *protos.Deployment, cfg *KubeConfig) ([]*ReplicaSetConfig
 
 	// Sort the components topologically
 	components := []*ReplicaSetConfig_ComponentInfo{}
-	topoOrderedSet, err := topoSort(callGraph)
-	if err != nil {
-		return nil, fmt.Errorf("unable to sort the components topologically: %w", err)
-	}
-
-	for _, componentName := range topoOrderedSet {
+	topologicalList := topologicalSort(callGraph)
+	for _, componentName := range topologicalList {
 		components = append(components, &ReplicaSetConfig_ComponentInfo{
 			Name:      componentName,
 			Listeners: listenersByComponent[componentName],
