@@ -106,9 +106,8 @@ var (
 type replicaSetInfo struct {
 	name string // name of the replica set
 
-	// set of the components hosted by the replica set and their listeners,
-	// keyed by component name.
-	components map[string]*ReplicaSetConfig_Listeners
+	// set of the components hosted by the replica set and their listeners
+	components []*ReplicaSetConfig_ComponentInfo
 
 	// port used by the weavelets that are part of the replica set to listen on
 	// for internal traffic.
@@ -173,7 +172,7 @@ func GenerateKubeDeployment(image string, dep *protos.Deployment, cfg *KubeConfi
 	generated = append(generated, content...)
 
 	// Generate the Prometheus deployment info.
-	content, err = generatePrometheusDeployment(maps.Values(replicaSets), dep)
+	content, err = generatePrometheusDeployment(replicaSets, dep)
 	if err != nil {
 		return fmt.Errorf("unable to create kube deployment for the Prometheus service: %w", err)
 	}
@@ -196,7 +195,7 @@ func GenerateKubeDeployment(image string, dep *protos.Deployment, cfg *KubeConfi
 
 // generateAppDeployment generates the kubernetes deployment and service
 // information for a given app deployment.
-func generateAppDeployment(replicaSets map[string]*replicaSetInfo, image string, dep *protos.Deployment) ([]byte, error) {
+func generateAppDeployment(replicaSets []*replicaSetInfo, image string, dep *protos.Deployment) ([]byte, error) {
 	var generated []byte
 
 	// For each replica set, build a deployment and a service. If a replica set
@@ -245,8 +244,8 @@ func generateAppDeployment(replicaSets map[string]*replicaSetInfo, image string,
 		fmt.Fprintf(os.Stderr, "Generated kube service for replica set %v\n", rsc.name)
 
 		// Build a service for each listener.
-		for _, listeners := range rsc.components {
-			for _, lis := range listeners.Listeners {
+		for _, componentInfo := range rsc.components {
+			for _, lis := range componentInfo.Listeners.Listeners {
 				ls, err := buildListenerService(rsc, lis, dep)
 				if err != nil {
 					return nil, fmt.Errorf("unable to create kube listener service for %s: %w", lis.Name, err)
@@ -725,8 +724,9 @@ func buildContainer(dockerImage string, rs *replicaSetInfo, dep *protos.Deployme
 
 // buildReplicaSetSpecs returns the replica sets specs for the deployment dep
 // keyed by the replica set.
-func buildReplicaSetSpecs(dep *protos.Deployment, cfg *KubeConfig) (map[string]*replicaSetInfo, error) {
-	rsets := map[string]*replicaSetInfo{}
+func buildReplicaSetSpecs(dep *protos.Deployment, cfg *KubeConfig) ([]*replicaSetInfo, error) {
+	rsets := []*replicaSetInfo{}
+	rsetsIndexMap := map[string]int{}
 
 	// Retrieve the components from the binary.
 	components, err := getComponents(dep, cfg)
@@ -734,21 +734,30 @@ func buildReplicaSetSpecs(dep *protos.Deployment, cfg *KubeConfig) (map[string]*
 		return nil, err
 	}
 
+	rsIdx := 0
 	// Build the replica sets.
-	for c, listeners := range components {
-		rsName := replicaSet(c, dep)
-		if _, found := rsets[rsName]; !found {
-			rsets[rsName] = &replicaSetInfo{
-				name:         rsName,
-				components:   map[string]*ReplicaSetConfig_Listeners{},
+	for _, componentInfo := range components {
+		rsName := replicaSet(componentInfo.Name, dep)
+		if idx, found := rsetsIndexMap[rsName]; !found {
+			rsets = append(rsets, &replicaSetInfo{
+				name: rsName,
+				components: []*ReplicaSetConfig_ComponentInfo{{
+					Name:      componentInfo.Name,
+					Listeners: componentInfo.Listeners,
+				}},
 				internalPort: internalPort,
-			}
+			})
+			rsetsIndexMap[rsName] = rsIdx
+			rsIdx++
 			internalPort++
+		} else {
+			rsets[idx].components = append(rsets[idx].components, &ReplicaSetConfig_ComponentInfo{
+				Name:      componentInfo.Name,
+				Listeners: componentInfo.Listeners,
+			})
 		}
-
-		rsets[rsName].components[c] = listeners
 	}
-	fmt.Fprintf(os.Stderr, "Replica sets generated successfully %v\n", maps.Keys(rsets))
+	fmt.Fprintf(os.Stderr, "Replica sets generated successfully %v\n", maps.Keys(rsetsIndexMap))
 	return rsets, nil
 }
 
@@ -765,20 +774,20 @@ func replicaSet(component string, dep *protos.Deployment) string {
 }
 
 // getComponents returns the list of components from a binary.
-func getComponents(dep *protos.Deployment, cfg *KubeConfig) (map[string]*ReplicaSetConfig_Listeners, error) {
-	// Get components.
-	components := map[string]*ReplicaSetConfig_Listeners{}
+func getComponents(dep *protos.Deployment, cfg *KubeConfig) ([]*ReplicaSetConfig_ComponentInfo, error) {
+	// Get listenersByComponent.
+	listenersByComponent := map[string]*ReplicaSetConfig_Listeners{}
 	callGraph, err := bin.ReadComponentGraph(dep.App.Binary)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve the call graph for binary %s: %w", dep.App.Binary, err)
 	}
 	for _, edge := range callGraph {
 		src, dst := edge[0], edge[1]
-		if _, found := components[src]; !found {
-			components[src] = &ReplicaSetConfig_Listeners{}
+		if _, found := listenersByComponent[src]; !found {
+			listenersByComponent[src] = &ReplicaSetConfig_Listeners{}
 		}
-		if _, found := components[dst]; !found {
-			components[dst] = &ReplicaSetConfig_Listeners{}
+		if _, found := listenersByComponent[dst]; !found {
+			listenersByComponent[dst] = &ReplicaSetConfig_Listeners{}
 		}
 	}
 
@@ -789,7 +798,7 @@ func getComponents(dep *protos.Deployment, cfg *KubeConfig) (map[string]*Replica
 	}
 
 	for _, c := range listenersToComponent {
-		if _, found := components[c.Component]; !found {
+		if _, found := listenersByComponent[c.Component]; !found {
 			return nil, fmt.Errorf("listeners mapped to unknown component: %s", c.Component)
 		}
 		for _, lis := range c.Listeners {
@@ -797,7 +806,7 @@ func getComponents(dep *protos.Deployment, cfg *KubeConfig) (map[string]*Replica
 			if opts := cfg.Listeners[lis]; opts != nil && opts.Public {
 				public = true
 			}
-			components[c.Component].Listeners = append(components[c.Component].Listeners,
+			listenersByComponent[c.Component].Listeners = append(listenersByComponent[c.Component].Listeners,
 				&ReplicaSetConfig_Listener{
 					Name:         lis,
 					ExternalPort: int32(externalPort),
@@ -806,5 +815,20 @@ func getComponents(dep *protos.Deployment, cfg *KubeConfig) (map[string]*Replica
 			externalPort++
 		}
 	}
+
+	// Sort the components topologically
+	components := []*ReplicaSetConfig_ComponentInfo{}
+	topoOrderedSet, err := topoSort(callGraph)
+	if err != nil {
+		return nil, fmt.Errorf("unable to sort the components topologically: %w", err)
+	}
+
+	for _, componentName := range topoOrderedSet {
+		components = append(components, &ReplicaSetConfig_ComponentInfo{
+			Name:      componentName,
+			Listeners: listenersByComponent[componentName],
+		})
+	}
+
 	return components, nil
 }

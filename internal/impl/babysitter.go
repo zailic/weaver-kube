@@ -33,7 +33,6 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/trace"
-	"golang.org/x/exp/maps"
 )
 
 // Endpoint scraped by Prometheus [1] to pull the metrics.
@@ -104,7 +103,7 @@ func RunBabysitter(ctx context.Context) error {
 	}
 
 	// Inform the weavelet of the components it should host.
-	if err := b.envelope.UpdateComponents(maps.Keys(cfg.ComponentsToStart)); err != nil {
+	if err := b.envelope.UpdateComponents(componentNames(cfg.ComponentsToStart)); err != nil {
 		return err
 	}
 
@@ -159,7 +158,7 @@ func (b *babysitter) GetListenerAddress(_ context.Context, request *protos.GetLi
 	*protos.GetListenerAddressReply, error) {
 	// The external listeners are prestarted, hence it returns the address on
 	// which the requested listener service is available.
-	for _, listeners := range maps.Values(b.cfg.ComponentsToStart) {
+	for _, listeners := range componentListeners(b.cfg.ComponentsToStart) {
 		for _, lis := range listeners.Listeners {
 			if lis.Name == request.Name {
 				addr := fmt.Sprintf(":%d", lis.ExternalPort)
@@ -213,6 +212,24 @@ func (b *babysitter) readMetrics() []*metrics.MetricSnapshot {
 		return ms
 	}
 	return append(ms, m...)
+}
+
+// componentNames extracts the list of component names from a given slice of *ReplicaSetConfig_ComponentInfo
+func componentNames(components []*ReplicaSetConfig_ComponentInfo) []string {
+	var names []string
+	for _, cInfo := range components {
+		names = append(names, cInfo.Name)
+	}
+	return names
+}
+
+// componentListeners extracts the list of listeners from a given slice of *ReplicaSetConfig_ComponentInfo
+func componentListeners(components []*ReplicaSetConfig_ComponentInfo) []*ReplicaSetConfig_Listeners {
+	var listeners []*ReplicaSetConfig_Listeners
+	for _, cInfo := range components {
+		listeners = append(listeners, cInfo.Listeners)
+	}
+	return listeners
 }
 
 // serveHTTP serves HTTP traffic on the provided listener using the provided

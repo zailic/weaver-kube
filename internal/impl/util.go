@@ -61,3 +61,39 @@ func cp(src, dst string) error {
 
 // TODO(rgrandl): Remove duplicate.
 func ptrOf[T any](val T) *T { return &val }
+
+// topoSort returns a topological sort of the given graph.
+// The algorithm is based on https://en.wikipedia.org/wiki/Topological_sorting#Depth-first_search,
+// and is not optimized for performance, but it is simple and works for our use case.
+// Note that the algorithm is not guaranteed to return a consistent result if the input graph has cycles.
+func topoSort(edges [][2]string) ([]string, error) {
+	// transform edges into a map from node to its dependencies
+	m := make(map[string][]string)
+	for _, e := range edges {
+		m[e[0]] = append(m[e[0]], e[1])
+	}
+
+	var sorted []string
+	visited := make(map[string]bool)
+	var visit func(string) error
+	visit = func(node string) error {
+		if visited[node] {
+			return nil
+		}
+		visited[node] = true
+		for _, dep := range m[node] {
+			if err := visit(dep); err != nil {
+				return err
+			}
+		}
+		sorted = append(sorted, node)
+		return nil
+	}
+	for node := range m {
+		if err := visit(node); err != nil {
+			return nil, err
+		}
+	}
+
+	return sorted, nil
+}
