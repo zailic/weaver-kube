@@ -136,6 +136,6 @@ func buildImageSpecs(dep *protos.Deployment, image string) (*imageSpecs, error) 
 	return &imageSpecs{
 		name:      fmt.Sprintf("%s:%s", image, dep.Id[:8]),
 		files:     []string{dep.App.Binary},
-		goInstall: []string{"github.com/zailic/weaver-kube/cmd/weaver-kube@latest"},
+		goInstall: []string{"github.com/zailic/weaver-kube/cmd/weaver-kube@v0.0.0-20230719164054-b9bbbdff12fc"},
 	}, nil
 }
