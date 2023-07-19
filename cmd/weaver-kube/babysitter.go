@@ -19,8 +19,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/ServiceWeaver/weaver-kube/internal/impl"
 	"github.com/ServiceWeaver/weaver/runtime/tool"
+	"github.com/zailic/weaver-kube/internal/impl"
 )
 
 var babysitterFlags = flag.NewFlagSet("babysitter", flag.ContinueOnError)

@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ServiceWeaver/weaver-kube/internal/proto"
 	"github.com/ServiceWeaver/weaver/runtime/bin"
 	"github.com/ServiceWeaver/weaver/runtime/protos"
+	"github.com/zailic/weaver-kube/internal/proto"
 	_ "go.opentelemetry.io/otel/exporters/jaeger"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"

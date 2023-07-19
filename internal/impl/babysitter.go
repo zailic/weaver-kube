@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ServiceWeaver/weaver-kube/internal/proto"
 	"github.com/ServiceWeaver/weaver/runtime"
 	"github.com/ServiceWeaver/weaver/runtime/colors"
 	"github.com/ServiceWeaver/weaver/runtime/envelope"
@@ -31,6 +30,7 @@ import (
 	imetrics "github.com/ServiceWeaver/weaver/runtime/prometheus"
 	"github.com/ServiceWeaver/weaver/runtime/protos"
 	"github.com/google/uuid"
+	"github.com/zailic/weaver-kube/internal/proto"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/trace"
 )

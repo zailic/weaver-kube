@@ -82,7 +82,7 @@ cluster up and running.
 ### 3. Install the `weaver-kube` command
 
 ```console
-$ go install github.com/ServiceWeaver/weaver-kube/cmd/weaver-kube@latest
+$ go install github.com/zailic/weaver-kube/cmd/weaver-kube@latest
 ```
 
 Finally, make sure you have a [DockerHub][docker_hub] account, and export your

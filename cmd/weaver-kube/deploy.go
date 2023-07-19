@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ServiceWeaver/weaver-kube/internal/impl"
 	"github.com/ServiceWeaver/weaver/runtime"
 	swruntime "github.com/ServiceWeaver/weaver/runtime"
 	"github.com/ServiceWeaver/weaver/runtime/bin"
@@ -29,6 +28,7 @@ import (
 	"github.com/ServiceWeaver/weaver/runtime/protos"
 	"github.com/ServiceWeaver/weaver/runtime/tool"
 	"github.com/google/uuid"
+	"github.com/zailic/weaver-kube/internal/impl"
 )
 
 const (
